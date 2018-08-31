@@ -48,38 +48,40 @@ export interface InterpolationFunction<TProps> {
   (props: TProps): Interpolation<TProps>
 }
 
-type Attrs<TProps, A extends Partial<TProps>, TTheme> = {
-  [K in keyof A]: ((props: ThemedStyledProps<TProps, TTheme>) => A[K]) | A[K]
-}
+type Attrs<TProps, TAttrs extends Partial<TProps>, TTheme> =
+  | ((props: ThemedStyledProps<TProps, TTheme>) => TAttrs)
+  | {
+      [K in keyof TAttrs]: ((props: ThemedStyledProps<TProps, TTheme>) => TAttrs[K]) | TAttrs[K]
+    }
 
-export interface StyledComponentClass<TProps, TTheme, O = TProps>
-  extends ComponentClass<ThemedOuterStyledProps<O, TTheme>> {
-  extend: ThemedStyledFunction<TProps, TTheme, O>
+export interface StyledComponentClass<TProps, TTheme, TOuterProps = TProps>
+  extends ComponentClass<ThemedOuterStyledProps<TOuterProps, TTheme>> {
+  extend: ThemedStyledFunction<TProps, TTheme, TOuterProps>
 
   withComponent<K extends keyof JSX.IntrinsicElements>(
     tag: K
   ): StyledComponentClass<
     JSX.IntrinsicElements[K],
     TTheme,
-    JSX.IntrinsicElements[K] & O
+    JSX.IntrinsicElements[K] & TOuterProps
   >
-  withComponent<U = {}>(
-    element: React.ComponentType<U>
-  ): StyledComponentClass<U, TTheme, U & O>
+  withComponent<TComponentProps = {}>(
+    element: React.ComponentType<TComponentProps>
+  ): StyledComponentClass<TComponentProps, TTheme, TComponentProps & TOuterProps>
 }
 
-export interface ThemedStyledFunction<TProps, TTheme, O = TProps> {
+export interface ThemedStyledFunction<TProps, TTheme, TOuterProps = TProps> {
   (
     strings: TemplateStringsArray,
     ...interpolations: Interpolation<ThemedStyledProps<TProps, TTheme>>[]
-  ): StyledComponentClass<TProps, TTheme, O>
-  <U>(
+  ): StyledComponentClass<TProps, TTheme, TOuterProps>
+  <TAdditionalProps>(
     strings: TemplateStringsArray,
-    ...interpolations: Interpolation<ThemedStyledProps<TProps & U, TTheme>>[]
-  ): StyledComponentClass<TProps & U, TTheme, O & U>
-  attrs<U, A extends Partial<TProps & U> = {}>(
-    attrs: Attrs<TProps & U, A, TTheme>
-  ): ThemedStyledFunction<DiffBetween<A, TProps & U>, TTheme, DiffBetween<A, O & U>>
+    ...interpolations: Interpolation<ThemedStyledProps<TProps & TAdditionalProps, TTheme>>[]
+  ): StyledComponentClass<TProps & TAdditionalProps, TTheme, TOuterProps & TAdditionalProps>
+  attrs<TAdditionalProps, TAttrs extends Partial<TProps & TAdditionalProps> = {}>(
+    attrs: Attrs<TProps & TAdditionalProps, TAttrs, TTheme>
+  ): ThemedStyledFunction<TProps & TAdditionalProps, TTheme, Omit<TProps & TAdditionalProps, keyof TAttrs>>
 }
 
 export type StyledFunction<TProps> = ThemedStyledFunction<TProps, any>
@@ -96,10 +98,10 @@ export interface ThemedBaseStyledInterface<TTheme>
   <TProps, TTag extends keyof JSX.IntrinsicElements>(
     tag: TTag
   ): ThemedStyledFunction<TProps, TTheme, TProps & JSX.IntrinsicElements[TTag]>
-  <TProps, O>(component: StyledComponentClass<TProps, TTheme, O>): ThemedStyledFunction<
+  <TProps, TOuterProps>(component: StyledComponentClass<TProps, TTheme, TOuterProps>): ThemedStyledFunction<
     TProps,
     TTheme,
-    O
+    TOuterProps
   >
   <TProps extends { [prop: string]: any; theme?: TTheme }>(
     component: React.ComponentType<TProps>
@@ -127,14 +129,20 @@ export interface ThemedCssFunction<TTheme> {
 }
 
 // Helper type operators
-type KeyofBase = keyof any
-type Diff<T extends KeyofBase, U extends KeyofBase> = ({ [P in T]: P } &
-  { [P in U]: never })[T]
-type Omit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>
-type DiffBetween<T, U> = Pick<T, Diff<keyof T, keyof U>> &
-  Pick<U, Diff<keyof U, keyof T>>
+type Omit<T, K> = Pick<T, Exclude<keyof T, K>>
+type DiffBetween<T, U> = Pick<T, Exclude<keyof T, keyof U>> &
+  Pick<U, Exclude<keyof U, keyof T>>
 type WithOptionalTheme<TProps extends { theme?: TTheme }, TTheme> = Omit<TProps, 'theme'> & {
   theme?: TTheme
+}
+
+type foo = {
+  one: string,
+  two: number
+}
+type bar = {
+  two: number
+  three: string
 }
 
 export interface ThemedStyledComponentsModule<TTheme> {
